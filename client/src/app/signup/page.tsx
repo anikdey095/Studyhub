@@ -24,7 +24,8 @@ const SignupPage = () => {
     setSuccess('');
 
     try {
-      await axios.post('http://localhost:5000/api/auth/signup', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      await axios.post(`${API_URL}/api/auth/signup`, {
         name,
         email,
         password,
