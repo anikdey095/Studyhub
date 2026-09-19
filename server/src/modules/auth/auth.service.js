@@ -35,7 +35,7 @@ class AuthService {
   }
 
   async signup(userData) {
-    const { email, name, university, password } = userData;
+    const { email, name, university, password, studentId } = userData;
     const normalizedEmail = email.toLowerCase().trim();
     const role = normalizedEmail.includes('admin') ? 'admin' : 'student';
 
@@ -78,6 +78,7 @@ class AuthService {
           email: normalizedEmail,
           name,
           university,
+          studentId: studentId || null,
           password: hashedPassword,
           role,
         },
@@ -86,6 +87,7 @@ class AuthService {
           email: true,
           name: true,
           university: true,
+          studentId: true,
           role: true,
           createdAt: true,
         }
@@ -107,6 +109,7 @@ class AuthService {
         email: normalizedEmail,
         name,
         university,
+        studentId: userData.studentId,
         role,
         createdAt: new Date().toISOString(),
       };

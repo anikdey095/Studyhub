@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   GraduationCap,
@@ -23,6 +23,7 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -207,6 +208,7 @@ export default function Navbar() {
                           onClick={() => {
                             logout();
                             setUserDropdownOpen(false);
+                            router.push('/');
                           }}
                           className="w-full flex items-center space-x-2.5 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors text-left"
                         >
@@ -295,6 +297,7 @@ export default function Navbar() {
                   onClick={() => {
                     logout();
                     setMobileMenuOpen(false);
+                    router.push('/');
                   }}
                   className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-red-400 bg-red-500/10 font-semibold text-sm"
                 >

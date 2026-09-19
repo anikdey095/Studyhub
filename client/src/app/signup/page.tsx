@@ -13,6 +13,7 @@ const SignupPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [university, setUniversity] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,11 +21,31 @@ const SignupPage = () => {
   const router = useRouter();
   const { login } = useAuth();
 
+  // Auto-format student ID to XXX-XXX-XXX
+  const handleStudentIdChange = (val: string) => {
+    const raw = val.replace(/[^\d]/g, '').slice(0, 9);
+    let formatted = raw;
+    if (raw.length > 6) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
+    } else if (raw.length > 3) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    }
+    setStudentId(formatted);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setSuccess('');
+
+    // Validate Student ID (e.g. 231-115-095)
+    const studentIdPattern = /^\d{3}-\d{3}-\d{3}$/;
+    if (!studentIdPattern.test(studentId.trim())) {
+      setError('Please provide a valid University Student ID format like 231-115-095 (9 digits: Batch - Dept - Roll).');
+      setIsLoading(false);
+      return;
+    }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
@@ -38,13 +59,17 @@ const SignupPage = () => {
         name,
         email,
         university: university || 'Global Student',
+        studentId: studentId.trim(),
         password,
       });
 
       setSuccess('Account created successfully! Redirecting...');
       
       if (response.data?.token && response.data?.user) {
-        login(response.data.token, response.data.user);
+        login(response.data.token, {
+          ...response.data.user,
+          studentId: response.data.user.studentId || studentId.trim(),
+        });
         setTimeout(() => {
           router.push('/dashboard');
         }, 1200);
@@ -99,6 +124,22 @@ const SignupPage = () => {
             onChange={(e) => setUniversity(e.target.value)}
             required
           />
+          <div>
+            <InputField
+              id="studentId"
+              name="studentId"
+              label="University Student ID / Roll"
+              type="text"
+              placeholder="e.g. 231-115-095"
+              value={studentId}
+              onChange={(e) => handleStudentIdChange(e.target.value)}
+              required
+              maxLength={11}
+            />
+            <p className="text-[11px] text-gray-400 mt-1 pl-1">
+              Required format: <span className="font-mono text-pink-400 font-semibold">231-115-095</span> (Batch-Dept-Roll)
+            </p>
+          </div>
           <InputField
             id="password"
             name="password"

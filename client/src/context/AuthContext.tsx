@@ -79,6 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Failed to clear auth from localStorage', e);
     }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const updateUser = (updatedFields: Partial<User>) => {

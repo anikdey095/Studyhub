@@ -3,12 +3,19 @@ import authService from './auth.service.js';
 class AuthController {
   async signup(req, res, next) {
     try {
-      const { email, name, university, password } = req.body;
+      const { email, name, university, studentId, password } = req.body;
 
       if (!email || !name || !password) {
         return res.status(400).json({ 
           error: 'Email, name, and password are required',
           message: 'Email, name, and password are required'
+        });
+      }
+
+      if (studentId && !/^\d{3}-\d{3}-\d{3}$/.test(studentId.trim())) {
+        return res.status(400).json({
+          error: 'Invalid Student ID format',
+          message: 'University Student ID must be formatted like 231-115-095 (3 digits - 3 digits - 3 digits).'
         });
       }
 
@@ -25,6 +32,7 @@ class AuthController {
         email: email.toLowerCase().trim(),
         name: name.trim(),
         university: userUniversity,
+        studentId: studentId ? studentId.trim() : undefined,
         password
       });
 
@@ -35,6 +43,7 @@ class AuthController {
           email: result.user.email,
           name: result.user.name,
           university: result.user.university,
+          studentId: result.user.studentId || studentId,
           role: result.user.role || 'student',
         },
         token: result.token
