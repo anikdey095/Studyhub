@@ -5,22 +5,26 @@ class AuthController {
     try {
       const { email, name, university, password } = req.body;
 
-      if (!email || !name || !university || !password) {
+      if (!email || !name || !password) {
         return res.status(400).json({ 
-          error: 'All fields are required: email, name, university, password' 
+          error: 'Email, name, and password are required',
+          message: 'Email, name, and password are required'
         });
       }
 
       if (password.length < 6) {
         return res.status(400).json({ 
-          error: 'Password must be at least 6 characters long' 
+          error: 'Password must be at least 6 characters long',
+          message: 'Password must be at least 6 characters long'
         });
       }
 
+      const userUniversity = university && university.trim() ? university.trim() : 'General Student';
+
       const result = await authService.signup({
-        email: email.toLowerCase(),
-        name,
-        university,
+        email: email.toLowerCase().trim(),
+        name: name.trim(),
+        university: userUniversity,
         password
       });
 
@@ -30,14 +34,17 @@ class AuthController {
           id: result.user.id,
           email: result.user.email,
           name: result.user.name,
-          university: result.user.university
+          university: result.user.university,
+          role: result.user.role || 'student',
         },
         token: result.token
       });
     } catch (error) {
-      if (error.code === 'P2002') {
+      if (error.code === 'P2002' || error.statusCode === 409 || error.isDuplicate) {
         return res.status(409).json({ 
-          error: 'User with this email already exists' 
+          success: false,
+          error: 'Email already registered',
+          message: error.message || 'An account with this email already exists. Please log in or use a different email.'
         });
       }
       next(error);
@@ -50,18 +57,20 @@ class AuthController {
 
       if (!email || !password) {
         return res.status(400).json({ 
-          error: 'Email and password are required' 
+          error: 'Email and password are required',
+          message: 'Email and password are required'
         });
       }
 
       const result = await authService.login({
-        email: email.toLowerCase(),
+        email: email.toLowerCase().trim(),
         password
       });
 
       if (!result) {
         return res.status(401).json({ 
-          error: 'Invalid email or password' 
+          error: 'Invalid email or password',
+          message: 'Invalid email or password'
         });
       }
 
@@ -71,7 +80,8 @@ class AuthController {
           id: result.user.id,
           email: result.user.email,
           name: result.user.name,
-          university: result.user.university
+          university: result.user.university,
+          role: result.user.role || 'student',
         },
         token: result.token
       });
