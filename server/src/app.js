@@ -54,10 +54,15 @@ const authLimiter = rateLimit({
 app.use('/api/', globalApiLimiter);
 
 // 3. CORS and Request Body Parsing
+const allowedOrigins = process.env.FRONTEND_URL
+  ? [process.env.FRONTEND_URL, 'http://localhost:3000']
+  : ['*'];
+
 app.use(cors({
-  origin: '*',
+  origin: process.env.FRONTEND_URL ? allowedOrigins : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
