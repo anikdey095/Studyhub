@@ -38,18 +38,23 @@ model Course {
 }
 
 model Note {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  fileUrl     String
-  author      User      @relation(fields: [authorId], references: [id])
-  authorId    String
-  course      Course    @relation(fields: [courseId], references: [id])
-  courseId    String
-  comments    Comment[]
-  ratings     Rating[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  fileUrl        String
+  courseName     String?
+  departmentName String?
+  universityName String?
+  authorName     String?
+  downloadCount  Int       @default(0)
+  author         User?     @relation(fields: [authorId], references: [id])
+  authorId       String?
+  course         Course?   @relation(fields: [courseId], references: [id])
+  courseId       String?
+  comments       Comment[]
+  ratings        Rating[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 model Comment {

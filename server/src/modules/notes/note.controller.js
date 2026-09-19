@@ -122,15 +122,15 @@ class NoteController {
           id: n.id,
           title: n.title,
           description: n.description || '',
-          course: n.course?.name || 'General Course',
-          department: n.course?.department?.name || 'General',
-          university: n.author?.university || 'StudyHub Member',
-          author: n.author?.name || 'Anonymous',
+          course: n.courseName || n.course?.name || 'General Course',
+          department: n.departmentName || n.course?.department?.name || 'General',
+          university: n.universityName || n.author?.university || 'StudyHub Member',
+          author: n.authorName || n.author?.name || 'Anonymous',
           fileUrl: n.fileUrl,
-          downloads: Math.floor(Math.random() * 100) + 1,
+          downloads: n.downloadCount || 0,
           rating: n.ratings.length ? n.ratings.reduce((acc, r) => acc + r.value, 0) / n.ratings.length : 5.0,
           reviewsCount: n.ratings.length,
-          tags: [n.course?.name || 'Note'],
+          tags: [n.departmentName || n.course?.name || 'Note'],
           createdAt: n.createdAt.toISOString(),
         }));
         combinedNotes = [...formattedDbNotes, ...SAMPLE_NOTES];
@@ -181,28 +181,67 @@ class NoteController {
         return res.status(400).json({ error: 'Title and file URL are required' });
       }
 
-      const newNote = {
-        id: `note-${Date.now()}`,
-        title,
-        description: description || '',
-        course: courseName || 'General Studies',
-        department: departmentName || 'General',
-        university: 'StudyHub Community',
-        author: authorName || 'Anonymous Scholar',
-        fileUrl,
-        downloads: 1,
-        rating: 5.0,
-        reviewsCount: 1,
-        tags: [departmentName || 'Study Material'],
-        createdAt: new Date().toISOString(),
-      };
+      let savedNote = null;
 
-      SAMPLE_NOTES.unshift(newNote);
+      // Try saving to PostgreSQL database first
+      try {
+        const dbNote = await prisma.note.create({
+          data: {
+            title,
+            description: description || '',
+            fileUrl,
+            courseName: courseName || 'General Studies',
+            departmentName: departmentName || 'General',
+            universityName: 'StudyHub Community',
+            authorName: authorName || 'Anonymous Scholar',
+            downloadCount: 0,
+          },
+        });
+
+        savedNote = {
+          id: dbNote.id,
+          title: dbNote.title,
+          description: dbNote.description || '',
+          course: dbNote.courseName || 'General Studies',
+          department: dbNote.departmentName || 'General',
+          university: dbNote.universityName || 'StudyHub Community',
+          author: dbNote.authorName || 'Anonymous Scholar',
+          fileUrl: dbNote.fileUrl,
+          downloads: 0,
+          rating: 5.0,
+          reviewsCount: 0,
+          tags: [dbNote.departmentName || 'Study Material'],
+          createdAt: dbNote.createdAt.toISOString(),
+        };
+
+        console.log('✅ Note saved to database:', dbNote.id);
+      } catch (dbError) {
+        console.warn('⚠️ DB save failed, using in-memory store:', dbError.message);
+
+        // Fallback: save to in-memory SAMPLE_NOTES array
+        savedNote = {
+          id: `note-${Date.now()}`,
+          title,
+          description: description || '',
+          course: courseName || 'General Studies',
+          department: departmentName || 'General',
+          university: 'StudyHub Community',
+          author: authorName || 'Anonymous Scholar',
+          fileUrl,
+          downloads: 0,
+          rating: 5.0,
+          reviewsCount: 0,
+          tags: [departmentName || 'Study Material'],
+          createdAt: new Date().toISOString(),
+        };
+
+        SAMPLE_NOTES.unshift(savedNote);
+      }
 
       res.status(201).json({
         success: true,
         message: 'Note uploaded successfully',
-        note: newNote,
+        note: savedNote,
       });
     } catch (error) {
       console.error('Error creating note:', error);
