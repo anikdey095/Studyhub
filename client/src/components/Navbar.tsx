@@ -19,6 +19,7 @@ import {
   Briefcase,
   Users,
   Compass,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -201,6 +202,17 @@ export default function Navbar() {
                           <Sparkles className="w-4 h-4 text-amber-400" />
                           <span>AI Study Suite</span>
                         </Link>
+
+                        {(user.role === 'admin' || user.email?.toLowerCase().includes('admin')) && (
+                          <Link
+                            href="/admin"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center space-x-2.5 px-4 py-2 text-pink-400 hover:text-pink-300 hover:bg-pink-500/[0.08] transition-colors font-semibold"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-pink-400" />
+                            <span>Admin Portal</span>
+                          </Link>
+                        )}
                       </div>
 
                       <div className="pt-1 mt-1 border-t border-white/[0.08]">
@@ -293,6 +305,16 @@ export default function Navbar() {
                   <LayoutDashboard className="w-4 h-4 text-purple-400" />
                   <span>Dashboard</span>
                 </Link>
+                {(user.role === 'admin' || user.email?.toLowerCase().includes('admin')) && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center space-x-2 px-3.5 py-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20 font-semibold text-sm"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-pink-400" />
+                    <span>Admin Portal</span>
+                  </Link>
+                )}
                 <button
                   onClick={() => {
                     logout();

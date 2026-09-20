@@ -18,9 +18,13 @@ export async function initializeDatabase() {
       );
     `);
 
-    // Ensure role column exists if User table was created earlier without it
+    // Ensure role and studentId columns exist if User table was created earlier without it
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'student';
+    `).catch(() => {});
+
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "studentId" TEXT;
     `).catch(() => {});
 
     await prisma.$executeRawUnsafe(`

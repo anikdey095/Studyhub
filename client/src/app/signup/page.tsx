@@ -21,16 +21,21 @@ const SignupPage = () => {
   const router = useRouter();
   const { login } = useAuth();
 
-  // Auto-format student ID to XXX-XXX-XXX
+  // Auto-format student ID to XXX-XXX-XXX if numerical, or accept flexible university ID
   const handleStudentIdChange = (val: string) => {
-    const raw = val.replace(/[^\d]/g, '').slice(0, 9);
-    let formatted = raw;
-    if (raw.length > 6) {
-      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 6)}-${raw.slice(6)}`;
-    } else if (raw.length > 3) {
-      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    const digitsOnly = val.replace(/\D/g, '');
+    // If typing digits or digits with hyphens up to 9 digits, auto-format to XXX-XXX-XXX
+    if (/^[0-9-]*$/.test(val) && digitsOnly.length <= 9 && digitsOnly.length > 0) {
+      let formatted = digitsOnly;
+      if (digitsOnly.length > 6) {
+        formatted = `${digitsOnly.slice(0, 3)}-${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+      } else if (digitsOnly.length > 3) {
+        formatted = `${digitsOnly.slice(0, 3)}-${digitsOnly.slice(3)}`;
+      }
+      setStudentId(formatted);
+    } else {
+      setStudentId(val.slice(0, 25));
     }
-    setStudentId(formatted);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,10 +44,10 @@ const SignupPage = () => {
     setError('');
     setSuccess('');
 
-    // Validate Student ID (e.g. 231-115-095)
-    const studentIdPattern = /^\d{3}-\d{3}-\d{3}$/;
-    if (!studentIdPattern.test(studentId.trim())) {
-      setError('Please provide a valid University Student ID format like 231-115-095 (9 digits: Batch - Dept - Roll).');
+    // Validate Student ID (e.g. 231-115-095 or standard institutional ID)
+    const trimmedId = studentId.trim();
+    if (trimmedId.length < 3) {
+      setError('Please provide a valid University Student ID / Roll (at least 3 characters, e.g. 231-115-095).');
       setIsLoading(false);
       return;
     }
@@ -134,10 +139,10 @@ const SignupPage = () => {
               value={studentId}
               onChange={(e) => handleStudentIdChange(e.target.value)}
               required
-              maxLength={11}
+              maxLength={25}
             />
             <p className="text-[11px] text-gray-400 mt-1 pl-1">
-              Required format: <span className="font-mono text-pink-400 font-semibold">231-115-095</span> (Batch-Dept-Roll)
+              Format: <span className="font-mono text-pink-400 font-semibold">231-115-095</span> (Batch-Dept-Roll) or your institutional student ID
             </p>
           </div>
           <InputField

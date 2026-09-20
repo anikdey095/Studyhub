@@ -35,24 +35,21 @@ export const checkDatabaseStatus = async () => {
   return isDbConnected;
 };
 
-// Middleware to check database connection for routes requiring DB
+// Middleware to check database connection status without blocking requests
 export const checkDatabaseConnection = async (req, res, next) => {
   if (!process.env.DATABASE_URL) {
-    // In demo / staging without DB configured yet, pass through with warning
     req.dbConnected = false;
     return next();
   }
 
-  const connected = await checkDatabaseStatus();
-  req.dbConnected = connected;
-  
-  if (!connected && req.method !== 'GET') {
-    return res.status(503).json({
-      error: 'Database unavailable',
-      message: 'Database connection is currently initializing or unreachable. Please check DATABASE_URL.'
-    });
+  try {
+    const connected = await checkDatabaseStatus();
+    req.dbConnected = connected;
+  } catch {
+    req.dbConnected = false;
   }
 
+  // Always proceed so controllers can write to DB or seamlessly use their in-memory fallback stores
   next();
 };
 

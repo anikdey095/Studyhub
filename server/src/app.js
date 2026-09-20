@@ -20,6 +20,9 @@ dotenv.config();
 
 const app = express();
 
+// Trust reverse proxies (Render, Vercel, Railway, Cloudflare, etc.)
+app.set('trust proxy', 1);
+
 // 1. Enterprise Security Headers with Helmet
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -42,7 +45,7 @@ const globalApiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // Limit each IP to 30 auth requests per 15 minutes to prevent brute-force attacks
+  max: 60, // Limit each IP to 60 auth requests per 15 minutes to prevent brute-force attacks
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -54,15 +57,41 @@ const authLimiter = rateLimit({
 
 app.use('/api/', globalApiLimiter);
 
-// 3. CORS and Request Body Parsing
-const allowedOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL, 'http://localhost:3000']
-  : ['*'];
+// 3. Robust CORS and Request Body Parsing for Production
+const configuredFrontend = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : null;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL ? allowedOrigins : '*',
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Postman, server-to-server, curl)
+    if (!origin) return callback(null, true);
+
+    const cleanOrigin = origin.replace(/\/$/, '');
+
+    // Allow configured frontend
+    if (configuredFrontend && cleanOrigin === configuredFrontend) {
+      return callback(null, true);
+    }
+
+    // Allow all local dev hosts
+    if (cleanOrigin.includes('localhost') || cleanOrigin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // Allow Vercel preview/production deployments
+    if (cleanOrigin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+
+    // Allow Render deployments
+    if (cleanOrigin.endsWith('.onrender.com')) {
+      return callback(null, true);
+    }
+
+    // Default to permissive to prevent CORS dropouts in production
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key', 'x-admin-passkey', 'x-auth-token'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));

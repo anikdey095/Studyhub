@@ -139,6 +139,21 @@ export default function StudyPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
 
+  // Read URL query parameters on mount (e.g. /study?q=algorithms or /study?cat=Software Engineering)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryParam = params.get('q') || params.get('search');
+      const catParam = params.get('cat') || params.get('department');
+      if (queryParam) {
+        setSearchQuery(queryParam);
+      }
+      if (catParam) {
+        setSelectedDepartment(catParam);
+      }
+    }
+  }, []);
+
   // Fetch dynamic departments and courses from backend
   useEffect(() => {
     const fetchDepartments = async () => {
