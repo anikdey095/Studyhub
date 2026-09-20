@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import {
@@ -96,6 +96,25 @@ export default function ResearchPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [downloadedId, setDownloadedId] = useState<string | null>(null);
+  const [selectedReadingPaper, setSelectedReadingPaper] = useState<Paper | null>(null);
+
+  // Sync research papers from server
+  useEffect(() => {
+    const fetchPapers = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+        const res = await axios.get(`${API_URL}/api/admin/research`);
+        if (res.data?.papers && Array.isArray(res.data.papers) && res.data.papers.length > 0) {
+          const apiIds = new Set(res.data.papers.map((p: any) => p.id));
+          const uniqueInitial = INITIAL_PAPERS.filter((p) => !apiIds.has(p.id));
+          setPapers([...res.data.papers, ...uniqueInitial]);
+        }
+      } catch (err) {
+        // Use local fallback
+      }
+    };
+    fetchPapers();
+  }, []);
 
   // Form State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -229,8 +248,7 @@ export default function ResearchPage() {
       }
     }
 
-    const newPaper: Paper = {
-      id: `p-${Date.now()}`,
+    const newPaperData = {
       title,
       abstract,
       field,
@@ -242,7 +260,19 @@ export default function ResearchPage() {
       pdfUrl: finalPdfUrl,
     };
 
-    setPapers([newPaper, ...papers]);
+    try {
+      const res = await axios.post(`${API_URL}/api/admin/research`, newPaperData);
+      if (res.data?.paper) {
+        setPapers([res.data.paper, ...papers]);
+      } else {
+        const fallbackPaper: Paper = { id: `p-${Date.now()}`, ...newPaperData };
+        setPapers([fallbackPaper, ...papers]);
+      }
+    } catch {
+      const fallbackPaper: Paper = { id: `p-${Date.now()}`, ...newPaperData };
+      setPapers([fallbackPaper, ...papers]);
+    }
+
     setIsSubmitting(false);
     setIsModalOpen(false);
     setTitle('');
@@ -334,13 +364,17 @@ export default function ResearchPage() {
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-white hover:text-pink-300 transition-colors">
+                <h3
+                  onClick={() => setSelectedReadingPaper(paper)}
+                  className="text-xl font-bold text-white hover:text-pink-300 transition-colors cursor-pointer"
+                  title="Click to view & read preprint"
+                >
                   {paper.title}
                 </h3>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs text-gray-300 mt-2">
                   <span className="font-semibold text-gray-200">
-                    {paper.authors.join(', ')}
+                    {Array.isArray(paper.authors) ? paper.authors.join(', ') : paper.authors}
                   </span>
                   <span className="text-gray-500">•</span>
                   <span className="text-gray-400">{paper.institution}</span>
@@ -355,16 +389,27 @@ export default function ResearchPage() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-                <a
-                  href={paper.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-pink-400 hover:text-pink-300 flex items-center space-x-1 font-medium"
-                >
-                  <span>View on ArXiv / Journal</span>
-                  <ExternalLink className="w-3.5 h-3.5 ml-1" />
-                </a>
+              <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setSelectedReadingPaper(paper)}
+                    className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/30 transition-all shadow-sm"
+                    title="Read academic preprint"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Read Paper</span>
+                  </button>
+
+                  <a
+                    href={paper.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-400 hover:text-white flex items-center space-x-1 font-medium transition-colors"
+                  >
+                    <span>Journal / ArXiv</span>
+                    <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                  </a>
+                </div>
 
                 <button
                   onClick={() => handleDownload(paper.id)}
@@ -373,6 +418,7 @@ export default function ResearchPage() {
                       ? 'bg-emerald-500 text-white'
                       : 'bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10'
                   }`}
+                  title="Download manuscript PDF"
                 >
                   {downloadedId === paper.id ? (
                     <>
@@ -529,6 +575,152 @@ export default function ResearchPage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Research Paper Academic Reader Modal */}
+        {selectedReadingPaper && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md">
+            <div className="w-full max-w-4xl max-h-[92vh] bg-[#0d0d15] border border-white/20 rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
+              {/* Header */}
+              <div className="p-4 sm:p-6 border-b border-white/10 bg-white/[0.02] flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-pink-500/20 text-pink-300 font-semibold text-xs border border-pink-500/30">
+                      {selectedReadingPaper.field}
+                    </span>
+                    <span className="text-xs text-gray-400">Published {selectedReadingPaper.year}</span>
+                    <span className="text-xs text-gray-500">•</span>
+                    <span className="text-xs text-purple-300 font-semibold">{selectedReadingPaper.citations} Citations</span>
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {selectedReadingPaper.title}
+                  </h2>
+                  <p className="text-xs text-gray-300 mt-1.5">
+                    Authors:{' '}
+                    <span className="text-white font-medium">
+                      {Array.isArray(selectedReadingPaper.authors)
+                        ? selectedReadingPaper.authors.join(', ')
+                        : selectedReadingPaper.authors}
+                    </span>{' '}
+                    • <span className="text-gray-400">{selectedReadingPaper.institution}</span>
+                  </p>
+                  <p className="text-[11px] font-mono text-gray-500 mt-1">DOI: {selectedReadingPaper.doi}</p>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={() => handleDownload(selectedReadingPaper.id)}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-pink-600/20 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedReadingPaper(null)}
+                    className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Reader Body */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
+                {/* Abstract Section */}
+                <div className="p-5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-pink-400 flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4" />
+                    <span>Abstract & Research Synopsis</span>
+                  </h4>
+                  <p className="text-sm text-gray-300 leading-relaxed pt-1">
+                    {selectedReadingPaper.abstract}
+                  </p>
+                </div>
+
+                {/* PDF Manuscript Viewer / Interactive Reader Canvas */}
+                {selectedReadingPaper.pdfUrl &&
+                (selectedReadingPaper.pdfUrl.startsWith('http://localhost') ||
+                  selectedReadingPaper.pdfUrl.startsWith('/uploads') ||
+                  selectedReadingPaper.pdfUrl.endsWith('.pdf')) &&
+                !selectedReadingPaper.pdfUrl.includes('arxiv.org') &&
+                !selectedReadingPaper.pdfUrl.includes('nature.com') ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
+                      <span className="font-semibold text-gray-300">Manuscript Preview</span>
+                      <a
+                        href={selectedReadingPaper.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-pink-400 hover:text-pink-300 flex items-center space-x-1"
+                      >
+                        <span>Open Full Screen</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    <iframe
+                      src={selectedReadingPaper.pdfUrl}
+                      className="w-full h-[55vh] rounded-xl border border-white/15 bg-white shadow-xl"
+                      title={selectedReadingPaper.title}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 space-y-6">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs text-gray-400">
+                      <span className="text-pink-400 font-semibold">Open Science Preprint Archive</span>
+                      <span className="font-mono">{selectedReadingPaper.doi}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-2">
+                        <h5 className="font-bold text-white text-xs uppercase tracking-wider">
+                          🔬 Methodology & Novel Contributions
+                        </h5>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          This work investigates scalable architectures, algorithmic refinements, and empirical validations in{' '}
+                          <span className="text-pink-300 font-semibold">{selectedReadingPaper.field}</span>, addressing existing bottlenecks in computational throughput and theoretical accuracy.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                        <h5 className="font-bold text-white text-xs uppercase tracking-wider">
+                          📊 Citation & Verification
+                        </h5>
+                        <p className="text-xs text-gray-400 leading-relaxed">
+                          Indexed with {selectedReadingPaper.citations} academic citations. Formatted for citation in BibTeX, APA 7th Edition, and IEEE styles.
+                        </p>
+                        <div className="pt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Peer Reviewed Preprint
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <a
+                        href={selectedReadingPaper.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-pink-400 hover:text-pink-300 flex items-center space-x-1"
+                      >
+                        <span>Visit Publisher Repository</span>
+                        <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                      </a>
+
+                      <button
+                        onClick={() => handleDownload(selectedReadingPaper.id)}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-lg"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Preprint PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

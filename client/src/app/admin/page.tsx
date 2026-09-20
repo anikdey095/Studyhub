@@ -197,12 +197,27 @@ export default function AdminPage() {
 
   const handleDeletePaper = async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/api/admin/research/${id}`);
+      await axios.delete(`${API_URL}/api/admin/research/${id}`, {
+        headers: { 'x-admin-key': adminKey || 'admin123' },
+      });
       setPapers(papers.filter((p) => p.id !== id));
       setNotification('Paper deleted.');
       setTimeout(() => setNotification(''), 2000);
     } catch (err) {
       alert('Error deleting paper');
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      await axios.delete(`${API_URL}/api/notes/${id}`, {
+        headers: { 'x-admin-key': adminKey || 'admin123' },
+      });
+      setNotes(notes.filter((n) => n.id !== id));
+      setNotification('Note deleted successfully.');
+      setTimeout(() => setNotification(''), 2000);
+    } catch (err) {
+      alert('Error deleting note');
     }
   };
 
@@ -218,10 +233,7 @@ export default function AdminPage() {
           description: newDeptDesc.trim(),
         },
         {
-          headers: {
-            'x-admin-key': adminKey || 'admin123',
-            Authorization: `Bearer ${adminKey || 'admin123'}`,
-          },
+          headers: { 'x-admin-key': adminKey || 'admin123' },
         }
       );
       if (res.data?.department) {
@@ -241,10 +253,7 @@ export default function AdminPage() {
     if (!confirm(`Are you sure you want to delete department "${name}"?`)) return;
     try {
       await axios.delete(`${API_URL}/api/departments/${id}`, {
-        headers: {
-          'x-admin-key': adminKey || 'admin123',
-          Authorization: `Bearer ${adminKey || 'admin123'}`,
-        },
+        headers: { 'x-admin-key': adminKey || 'admin123' },
       });
       setDepartments((prev) => prev.filter((d) => d.id !== id));
       setNotification(`Department "${name}" removed.`);
@@ -784,6 +793,13 @@ export default function AdminPage() {
                     <h4 className="font-bold text-white text-sm mt-1">{n.title}</h4>
                     <p className="text-xs text-gray-400">By {n.author} • {n.downloads || 0} downloads</p>
                   </div>
+                  <button
+                    onClick={() => handleDeleteNote(n.id)}
+                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors shrink-0"
+                    title="Delete Note"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
             </div>

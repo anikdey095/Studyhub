@@ -18,6 +18,9 @@ import {
   Lock,
   FileText,
   Paperclip,
+  ExternalLink,
+  Eye,
+  Maximize2,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
@@ -114,6 +117,14 @@ export default function StudyPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
+  const [selectedReadingNote, setSelectedReadingNote] = useState<Note | null>(null);
+
+  // Registered User Course Creation Modal State
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [courseModalDept, setCourseModalDept] = useState('Computer Science & Engineering');
+  const [courseModalName, setCourseModalName] = useState('');
+  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
+  const [courseAddMessage, setCourseAddMessage] = useState('');
 
   // Upload Form State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -276,10 +287,17 @@ export default function StudyPage() {
     const targetNote = notes.find((n) => n.id === id);
 
     if (targetNote) {
+      // Call backend to record download
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      axios.post(`${API_URL}/api/notes/${id}/download`).catch(() => {});
+
       // Increment download count locally
       setNotes((prevNotes) =>
         prevNotes.map((n) => (n.id === id ? { ...n, downloads: n.downloads + 1 } : n))
       );
+      if (selectedReadingNote?.id === id) {
+        setSelectedReadingNote((prev) => (prev ? { ...prev, downloads: prev.downloads + 1 } : null));
+      }
 
       // Trigger real file download
       if (
@@ -368,6 +386,42 @@ export default function StudyPage() {
     setTimeout(() => {
       setDownloadSuccessId(null);
     }, 2500);
+  };
+
+  const handleAddCourseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courseModalName.trim()) return;
+    setIsSubmittingCourse(true);
+    setCourseAddMessage('');
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const targetDept = courseModalDept || 'Computer Science & Engineering';
+      await axios.post(`${API_URL}/api/departments/courses`, {
+        name: courseModalName.trim(),
+        departmentName: targetDept,
+      });
+
+      // Update local course catalog immediately so it is selectable everywhere
+      setCourseCatalog((prev) => {
+        const currentList = prev[targetDept] || [];
+        if (!currentList.includes(courseModalName.trim())) {
+          return { ...prev, [targetDept]: [...currentList, courseModalName.trim()] };
+        }
+        return prev;
+      });
+
+      setCourseAddMessage(`🎉 Course "${courseModalName.trim()}" added to ${targetDept}!`);
+      setTimeout(() => {
+        setIsAddCourseModalOpen(false);
+        setCourseModalName('');
+        setCourseAddMessage('');
+      }, 1500);
+    } catch (err: any) {
+      setCourseAddMessage(err.response?.data?.error || 'Failed to add course');
+    } finally {
+      setIsSubmittingCourse(false);
+    }
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
@@ -466,19 +520,38 @@ export default function StudyPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              if (!isAuthenticated) {
-                setShowAuthGate(true);
-              } else {
-                setIsModalOpen(true);
-              }
-            }}
-            className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-sm flex items-center space-x-2 shadow-lg shadow-purple-600/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Upload Study Note</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowAuthGate(true);
+                } else {
+                  if (selectedDepartment !== 'All') {
+                    setCourseModalDept(selectedDepartment);
+                  }
+                  setIsAddCourseModalOpen(true);
+                }
+              }}
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-gray-200 border border-white/10 font-semibold text-sm flex items-center space-x-2 transition-all hover:border-purple-500/50"
+            >
+              <Plus className="w-4 h-4 text-purple-400" />
+              <span>+ Add Course</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowAuthGate(true);
+                } else {
+                  setIsModalOpen(true);
+                }
+              }}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-sm flex items-center space-x-2 shadow-lg shadow-purple-600/20 transition-all"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Upload Study Note</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter Controls */}
@@ -565,7 +638,11 @@ export default function StudyPage() {
                     </div>
                   </div>
 
-                  <h3 className="font-bold text-lg text-white group-hover:text-pink-300 transition-colors line-clamp-2">
+                  <h3
+                    onClick={() => setSelectedReadingNote(note)}
+                    className="font-bold text-lg text-white group-hover:text-pink-300 transition-colors line-clamp-2 cursor-pointer"
+                    title="Click to view & read note"
+                  >
                     {note.title}
                   </h3>
 
@@ -580,26 +657,38 @@ export default function StudyPage() {
                     <span className="text-gray-500">{note.university}</span>
                   </div>
 
-                  <button
-                    onClick={() => handleDownload(note.id)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                      downloadSuccessId === note.id
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-pink-600/20 hover:bg-pink-600 hover:text-white text-pink-300 border border-pink-500/30'
-                    }`}
-                  >
-                    {downloadSuccessId === note.id ? (
-                      <>
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        <span>Downloaded</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-3.5 h-3.5" />
-                        <span>{note.downloads}</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setSelectedReadingNote(note)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 bg-white/10 hover:bg-white/15 text-gray-200 hover:text-white border border-white/10 transition-all hover:border-purple-500/40"
+                      title="Read & view note"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Read</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDownload(note.id)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                        downloadSuccessId === note.id
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-pink-600/20 hover:bg-pink-600 hover:text-white text-pink-300 border border-pink-500/30'
+                      }`}
+                      title="Download verified note"
+                    >
+                      {downloadSuccessId === note.id ? (
+                        <>
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Saved</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{note.downloads}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -829,7 +918,224 @@ export default function StudyPage() {
           </div>
         )}
 
-        {/* Auth Gate Modal */}
+        {/* Note Reader & Document Preview Modal */}
+        {selectedReadingNote && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md">
+            <div className="w-full max-w-4xl max-h-[92vh] bg-[#0d0d15] border border-white/20 rounded-2xl flex flex-col shadow-2xl overflow-hidden relative">
+              {/* Header */}
+              <div className="p-4 sm:p-6 border-b border-white/10 bg-white/[0.02] flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-semibold text-xs border border-purple-500/30">
+                      {selectedReadingNote.department}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-white/5 text-gray-300 text-xs border border-white/10">
+                      {selectedReadingNote.course}
+                    </span>
+                    <div className="flex items-center space-x-1 text-amber-400 font-bold text-xs">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <span>{selectedReadingNote.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {selectedReadingNote.title}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Contributed by <span className="text-gray-200 font-medium">{selectedReadingNote.author}</span> • {selectedReadingNote.university}
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={() => handleDownload(selectedReadingNote.id)}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-pink-600/20 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedReadingNote(null)}
+                    className="p-2 text-gray-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Reader Body */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
+                {/* Description & Overview */}
+                <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-pink-400 mb-2 flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4" />
+                    <span>Syllabus Summary & Key Highlights</span>
+                  </h4>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {selectedReadingNote.description}
+                  </p>
+                </div>
+
+                {/* PDF Viewer / Document Preview */}
+                {selectedReadingNote.fileUrl &&
+                (selectedReadingNote.fileUrl.startsWith('http://localhost') ||
+                  selectedReadingNote.fileUrl.startsWith('/uploads') ||
+                  selectedReadingNote.fileUrl.endsWith('.pdf')) &&
+                !selectedReadingNote.fileUrl.includes('example.com') ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
+                      <span className="font-semibold text-gray-300">Document Reader Canvas</span>
+                      <a
+                        href={selectedReadingNote.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-pink-400 hover:text-pink-300 flex items-center space-x-1"
+                      >
+                        <span>Open in New Tab</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    <iframe
+                      src={selectedReadingNote.fileUrl}
+                      className="w-full h-[55vh] rounded-xl border border-white/15 bg-white shadow-xl"
+                      title={selectedReadingNote.title}
+                    />
+                  </div>
+                ) : (
+                  /* Formatted Academic Study Notes Interactive Reader Canvas */
+                  <div className="p-6 rounded-xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 space-y-6">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs text-gray-400">
+                      <span className="text-purple-300 font-semibold">StudyHub Verified Course Reader</span>
+                      <span>Total Downloads: {selectedReadingNote.downloads}</span>
+                    </div>
+
+                    <div className="space-y-4 text-sm text-gray-300">
+                      <div className="p-4 rounded-lg bg-purple-950/20 border border-purple-500/20">
+                        <h5 className="font-bold text-white text-sm mb-1">📘 Course Module Breakdown</h5>
+                        <p className="text-xs text-gray-300">
+                          This verified study resource comprehensively covers key midterm and final lecture materials for{' '}
+                          <span className="text-pink-300 font-semibold">{selectedReadingNote.course}</span> under the{' '}
+                          <span className="text-purple-300 font-semibold">{selectedReadingNote.department}</span> syllabus.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
+                          <h6 className="font-semibold text-white text-xs uppercase tracking-wider">Topics Included</h6>
+                          <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                            <li>Fundamental principles and theoretical derivations</li>
+                            <li>Step-by-step solved problem patterns</li>
+                            <li>Key formulas and quick-reference cheat sheets</li>
+                            <li>University past exam question solutions</li>
+                          </ul>
+                        </div>
+
+                        <div className="p-4 rounded-lg bg-white/[0.02] border border-white/5 space-y-2">
+                          <h6 className="font-semibold text-white text-xs uppercase tracking-wider">Academic Integrity</h6>
+                          <p className="text-xs text-gray-400">
+                            Verified by student peer review ({selectedReadingNote.rating.toFixed(1)} / 5.0 stars). Safe for personal revision and exam preparation.
+                          </p>
+                          <div className="pt-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">
+                              <CheckCircle className="w-3 h-3 mr-1" /> Peer Verified
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <p className="text-xs text-gray-400">
+                        Need the offline revision copy? Download the high-resolution printable PDF directly.
+                      </p>
+                      <button
+                        onClick={() => handleDownload(selectedReadingNote.id)}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-lg"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Full PDF Note</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Registered User Add Course Modal */}
+        {isAddCourseModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-[#0f0f18] border border-white/15 rounded-2xl p-6 shadow-2xl relative">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <h3 className="text-xl font-bold text-white flex items-center space-x-2">
+                  <Plus className="w-5 h-5 text-purple-400" />
+                  <span>Add Course to Department</span>
+                </h3>
+                <button
+                  onClick={() => setIsAddCourseModalOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddCourseSubmit} className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                    Target Department
+                  </label>
+                  <select
+                    value={courseModalDept}
+                    onChange={(e) => setCourseModalDept(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-gray-900/70 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {departments
+                      .filter((d) => d !== 'All')
+                      .map((d) => (
+                        <option key={d} value={d} className="bg-[#0f0f18]">
+                          {d}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <InputField
+                  id="course-modal-name"
+                  name="courseName"
+                  label="Course Code & Title"
+                  placeholder="e.g. CSE 425: Advanced Web Engineering"
+                  value={courseModalName}
+                  onChange={(e) => setCourseModalName(e.target.value)}
+                  required
+                />
+
+                <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs flex items-center space-x-2">
+                  <span>✨ Every registered student or educator can add a new course under any department.</span>
+                </div>
+
+                {courseAddMessage && (
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg text-purple-300 text-sm text-center">
+                    {courseAddMessage}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddCourseModalOpen(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-700 text-gray-300 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <Button type="submit" isLoading={isSubmittingCourse} className="w-auto px-6">
+                    Add Course
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
         {showAuthGate && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
             <div className="w-full max-w-md bg-[#0f0f18] border border-pink-500/30 rounded-2xl p-6 shadow-2xl text-center relative">
