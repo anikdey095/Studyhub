@@ -195,6 +195,17 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeletePaper = async (id: string) => {
+    try {
+      await axios.delete(`${API_URL}/api/admin/research/${id}`);
+      setPapers(papers.filter((p) => p.id !== id));
+      setNotification('Paper deleted.');
+      setTimeout(() => setNotification(''), 2000);
+    } catch (err) {
+      alert('Error deleting paper');
+    }
+  };
+
   const handleCreateDept = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim()) return;
