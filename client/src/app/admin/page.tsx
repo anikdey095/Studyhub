@@ -210,11 +210,20 @@ export default function AdminPage() {
     e.preventDefault();
     if (!newDeptName.trim()) return;
     try {
-      const res = await axios.post(`${API_URL}/api/departments`, {
-        name: newDeptName.trim(),
-        code: newDeptCode.trim(),
-        description: newDeptDesc.trim(),
-      });
+      const res = await axios.post(
+        `${API_URL}/api/departments`,
+        {
+          name: newDeptName.trim(),
+          code: newDeptCode.trim(),
+          description: newDeptDesc.trim(),
+        },
+        {
+          headers: {
+            'x-admin-key': adminKey || 'admin123',
+            Authorization: `Bearer ${adminKey || 'admin123'}`,
+          },
+        }
+      );
       if (res.data?.department) {
         setDepartments((prev) => [...prev, res.data.department]);
         setNotification(`Department "${res.data.department.name}" added successfully!`);
@@ -231,7 +240,12 @@ export default function AdminPage() {
   const handleDeleteDept = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete department "${name}"?`)) return;
     try {
-      await axios.delete(`${API_URL}/api/departments/${id}`);
+      await axios.delete(`${API_URL}/api/departments/${id}`, {
+        headers: {
+          'x-admin-key': adminKey || 'admin123',
+          Authorization: `Bearer ${adminKey || 'admin123'}`,
+        },
+      });
       setDepartments((prev) => prev.filter((d) => d.id !== id));
       setNotification(`Department "${name}" removed.`);
       setTimeout(() => setNotification(''), 2000);

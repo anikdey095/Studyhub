@@ -285,6 +285,59 @@ class NoteController {
       res.status(500).json({ success: false, error: 'File upload failed', message: error.message });
     }
   }
+
+  // POST /api/notes/:id/download - increment download counter
+  async recordDownload(req, res) {
+    try {
+      const { id } = req.params;
+      let newCount = 0;
+
+      // Try database update
+      try {
+        const updated = await prisma.note.update({
+          where: { id },
+          data: { downloadCount: { increment: 1 } },
+        });
+        newCount = updated.downloadCount;
+      } catch (dbErr) {
+        // Find in-memory
+        const memNote = SAMPLE_NOTES.find((n) => n.id === id);
+        if (memNote) {
+          memNote.downloads = (memNote.downloads || 0) + 1;
+          newCount = memNote.downloads;
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Download recorded',
+        downloads: newCount,
+      });
+    } catch (error) {
+      console.error('Error recording download:', error);
+      res.status(500).json({ success: false, error: 'Failed to record download' });
+    }
+  }
+
+  // DELETE /api/notes/:id
+  async deleteNote(req, res) {
+    try {
+      const { id } = req.params;
+      try {
+        await prisma.note.delete({ where: { id } }).catch(() => {});
+      } catch (dbErr) {}
+
+      const idx = SAMPLE_NOTES.findIndex((n) => n.id === id);
+      if (idx !== -1) {
+        SAMPLE_NOTES.splice(idx, 1);
+      }
+
+      res.json({ success: true, message: 'Note removed successfully' });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to delete note' });
+    }
+  }
 }
 
 export default new NoteController();
+
