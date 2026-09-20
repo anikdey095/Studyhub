@@ -67,7 +67,7 @@ export default function ProfilePage() {
   // Form Fields
   const [name, setName] = useState(user?.name || 'Dr. John Doe');
   const [university, setUniversity] = useState(user?.university || 'Massachusetts Institute of Technology');
-  const [department, setDepartment] = useState(user?.department || 'Computer Science & AI (CSAIL)');
+  const [department, setDepartment] = useState(user?.department || 'Computer Science & Engineering');
   const [year, setYear] = useState(user?.year || 'Graduate Researcher • Class of 2026');
   const [studentId, setStudentId] = useState(user?.studentId || 'MIT-CS-2026-904');
   const [bio, setBio] = useState(

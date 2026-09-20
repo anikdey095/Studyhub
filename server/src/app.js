@@ -10,6 +10,7 @@ import authRoutes from './modules/auth/auth.route.js';
 import noteRoutes from './modules/notes/note.route.js';
 import statsRoutes from './modules/stats/stats.route.js';
 import adminRoutes from './modules/admin/admin.route.js';
+import departmentRoutes from './modules/departments/department.route.js';
 import { checkDatabaseConnection, checkDatabaseStatus } from './middleware/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -109,6 +110,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/departments', departmentRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

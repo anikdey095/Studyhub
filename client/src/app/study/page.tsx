@@ -39,19 +39,74 @@ interface Note {
   createdAt?: string;
 }
 
-const DEPARTMENTS = [
+const DEFAULT_DEPARTMENTS = [
   'All',
-  'Computer Science',
-  'Artificial Intelligence',
+  'Computer Science & Engineering',
+  'Software Engineering',
+  'English',
   'Electrical Engineering',
-  'Chemistry & Biology',
-  'Business & Economics',
-  'Mathematics & Physics',
+  'Economics',
+  'Data Science',
 ];
+
+const DEFAULT_COURSES: Record<string, string[]> = {
+  'Computer Science & Engineering': [
+    'CSE 110: Programming Language I (C/C++)',
+    'CSE 220: Data Structures & Algorithms',
+    'CSE 321: Operating Systems & Systems Programming',
+    'CSE 330: Numerical Methods & Analysis',
+    'CSE 420: Compiler Design',
+    'CSE 422: Artificial Intelligence & Machine Learning',
+  ],
+  'Software Engineering': [
+    'SWE 121: Object Oriented Concepts & Java',
+    'SWE 221: Software Engineering Methodologies',
+    'SWE 311: Software Architecture & Design Patterns',
+    'SWE 322: Software Quality Assurance & Testing',
+    'SWE 411: Web & Mobile Application Engineering',
+    'SWE 421: DevOps, CI/CD & Cloud Infrastructure',
+  ],
+  'English': [
+    'ENG 101: Basic Academic English & Reading',
+    'ENG 102: English Composition & Expository Writing',
+    'ENG 201: Professional Communication & Public Speaking',
+    'ENG 301: Critical Thinking & Literary Theory',
+    'ENG 315: History of English Literature',
+    'ENG 401: Advanced Linguistics & Stylistics',
+  ],
+  'Electrical Engineering': [
+    'EEE 101: Electrical Circuit Analysis I',
+    'EEE 102: Electrical Circuit Analysis II',
+    'EEE 201: Electronic Devices & Analog Circuits',
+    'EEE 205: Digital Logic Design',
+    'EEE 301: Signals, Systems & Transforms',
+    'EEE 311: Microprocessors & Embedded Systems',
+    'EEE 401: Power System Engineering & Energy Systems',
+  ],
+  'Economics': [
+    'ECO 101: Principles of Microeconomics',
+    'ECO 102: Principles of Macroeconomics',
+    'ECO 201: Intermediate Microeconomic Theory',
+    'ECO 202: Intermediate Macroeconomic Theory',
+    'ECO 301: Econometrics & Quantitative Methods',
+    'ECO 401: International Trade & Global Finance',
+    'ECO 420: Development Economics & Public Policy',
+  ],
+  'Data Science': [
+    'DS 101: Introduction to Data Science with Python',
+    'DS 201: Applied Probability & Inferential Statistics',
+    'DS 301: Machine Learning & Predictive Modeling',
+    'DS 311: Big Data Technologies & Data Engineering',
+    'DS 401: Deep Learning & Neural Architectures',
+    'DS 415: Natural Language Processing & LLMs',
+  ],
+};
 
 export default function StudyPage() {
   const { user, isAuthenticated } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
+  const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
+  const [courseCatalog, setCourseCatalog] = useState<Record<string, string[]>>(DEFAULT_COURSES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [sortBy, setSortBy] = useState<'popular' | 'rating' | 'recent'>('popular');
@@ -64,12 +119,46 @@ export default function StudyPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [newTitle, setNewTitle] = useState('');
-  const [newCourse, setNewCourse] = useState('');
-  const [newDepartment, setNewDepartment] = useState('Computer Science');
+  const [newDepartment, setNewDepartment] = useState('Computer Science & Engineering');
+  const [newCourse, setNewCourse] = useState('CSE 220: Data Structures & Algorithms');
+  const [isCustomCourse, setIsCustomCourse] = useState(false);
+  const [customCourseInput, setCustomCourseInput] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+
+  // Fetch dynamic departments and courses from backend
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+        const res = await axios.get(`${API_URL}/api/departments`);
+        if (res.data?.departments && Array.isArray(res.data.departments)) {
+          const apiDepts = res.data.departments;
+          const deptNames = apiDepts.map((d: any) => d.name);
+          const combinedDepts = Array.from(
+            new Set(['All', ...DEFAULT_DEPARTMENTS.filter((d) => d !== 'All'), ...deptNames])
+          );
+          setDepartments(combinedDepts);
+
+          const newCatalog: Record<string, string[]> = { ...DEFAULT_COURSES };
+          apiDepts.forEach((d: any) => {
+            if (d.courses && Array.isArray(d.courses) && d.courses.length > 0) {
+              const courseNames = d.courses.map((c: any) => c.name);
+              newCatalog[d.name] = Array.from(
+                new Set([...(newCatalog[d.name] || []), ...courseNames])
+              );
+            }
+          });
+          setCourseCatalog(newCatalog);
+        }
+      } catch (err) {
+        console.warn('Using local departments and course catalog');
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const fetchNotes = async () => {
     setIsLoading(true);
@@ -87,59 +176,85 @@ export default function StudyPage() {
       }
     } catch (err) {
       console.warn('Using local notes fallback:', err);
-      // Fallback initial dataset
+      // Fallback initial dataset aligned with university departments
       setNotes([
         {
           id: 'note-1',
           title: 'Distributed Systems & Microservices Architecture',
           description: 'Comprehensive study guide covering consensus algorithms (Raft, Paxos), CAP theorem, and event sourcing.',
-          course: 'CS401',
-          department: 'Computer Science',
-          university: 'MIT',
+          course: 'CSE 420: Distributed Systems & Architecture',
+          department: 'Computer Science & Engineering',
+          university: 'University Campus',
           author: 'Elena Rostova',
           fileUrl: 'https://example.com/notes/distributed-systems.pdf',
           downloads: 1420,
           rating: 4.9,
-          tags: ['Distributed Systems', 'Backend'],
+          tags: ['Distributed Systems', 'CSE'],
         },
         {
           id: 'note-2',
-          title: 'Deep Learning with PyTorch & Transformer Models',
-          description: 'Lecture summaries, mathematical derivations of self-attention mechanisms, and complete hands-on PyTorch training pipelines.',
-          course: 'AI302',
-          department: 'Artificial Intelligence',
-          university: 'Stanford',
+          title: 'Enterprise Software Architecture & Design Patterns',
+          description: 'Clean Architecture, Domain-Driven Design (DDD), SOLID principles, and microkernel patterns.',
+          course: 'SWE 311: Software Architecture & Design Patterns',
+          department: 'Software Engineering',
+          university: 'University Campus',
           author: 'Marcus Chen',
-          fileUrl: 'https://example.com/notes/deep-learning.pdf',
-          downloads: 3150,
+          fileUrl: 'https://example.com/notes/software-architecture.pdf',
+          downloads: 2780,
           rating: 5.0,
-          tags: ['AI', 'Transformers'],
+          tags: ['Software Architecture', 'SWE'],
         },
         {
           id: 'note-3',
-          title: 'Data Structures & Algorithms: LeetCode Patterns',
-          description: 'Systematic breakdown of two pointers, sliding window, topological sort, and dynamic programming patterns.',
-          course: 'CS201',
-          department: 'Computer Science',
-          university: 'UC Berkeley',
-          author: 'Priya Sharma',
-          fileUrl: 'https://example.com/notes/dsa.pdf',
-          downloads: 2890,
-          rating: 4.8,
-          tags: ['DSA', 'LeetCode'],
+          title: 'Academic Rhetoric, Critical Discourse & Expository Writing',
+          description: 'Mastery handbook for university-level essay synthesis, argument structure, MLA/APA documentation.',
+          course: 'ENG 102: English Composition & Expository Writing',
+          department: 'English',
+          university: 'University Campus',
+          author: 'Prof. Julian Brooks',
+          fileUrl: 'https://example.com/notes/academic-rhetoric.pdf',
+          downloads: 1120,
+          rating: 4.85,
+          tags: ['English Composition', 'Rhetoric'],
         },
         {
           id: 'note-4',
-          title: 'Organic Chemistry II: Reaction Mechanisms & Synthesis',
-          description: 'Complete synthesis pathways, nucleophilic additions, electrophilic substitutions, and spectral analysis tips.',
-          course: 'CHEM220',
-          department: 'Chemistry & Biology',
-          university: 'Harvard University',
-          author: 'David Kim',
-          fileUrl: 'https://example.com/notes/orgo.pdf',
-          downloads: 870,
-          rating: 4.7,
-          tags: ['Chemistry', 'Synthesis'],
+          title: 'Analog Circuit Design & Operational Amplifiers',
+          description: 'BJT and MOSFET small-signal models, frequency response, feedback topologies, and operational amplifiers.',
+          course: 'EEE 201: Electronic Devices & Analog Circuits',
+          department: 'Electrical Engineering',
+          university: 'University Campus',
+          author: 'Tariq Al-Mansoor',
+          fileUrl: 'https://example.com/notes/analog-electronics.pdf',
+          downloads: 1650,
+          rating: 4.9,
+          tags: ['Analog Circuits', 'EEE'],
+        },
+        {
+          id: 'note-5',
+          title: 'Financial Econometrics & Applied Time-Series Forecasting',
+          description: 'ARIMA, GARCH modeling, stationarity testing, cointegration, and macroeconomic forecasting.',
+          course: 'ECO 301: Econometrics & Quantitative Methods',
+          department: 'Economics',
+          university: 'University Campus',
+          author: 'Sophia Rossi',
+          fileUrl: 'https://example.com/notes/econometrics.pdf',
+          downloads: 1940,
+          rating: 4.95,
+          tags: ['Econometrics', 'Economics'],
+        },
+        {
+          id: 'note-6',
+          title: 'Deep Learning Architectures & Transformer Foundations',
+          description: 'Mathematical foundations of self-attention mechanisms, multi-head attention, and PyTorch pipelines.',
+          course: 'DS 401: Deep Learning & Neural Architectures',
+          department: 'Data Science',
+          university: 'University Campus',
+          author: 'Kavita Sengupta',
+          fileUrl: 'https://example.com/notes/deep-learning-transformers.pdf',
+          downloads: 3150,
+          rating: 5.0,
+          tags: ['Deep Learning', 'Data Science'],
         },
       ]);
     } finally {
@@ -283,14 +398,36 @@ export default function StudyPage() {
         return;
       }
 
+      const finalCourse = isCustomCourse
+        ? (customCourseInput.trim() || 'General Studies')
+        : (newCourse.trim() || 'General Studies');
+
       const res = await axios.post(`${API_URL}/api/notes`, {
         title: newTitle,
         description: newDescription,
-        courseName: newCourse || 'General',
+        courseName: finalCourse,
         departmentName: newDepartment,
         fileUrl: uploadedFileUrl || 'https://example.com/uploaded-note.pdf',
         authorName: user?.name || 'Student Contributor',
       });
+
+      // If user typed a custom course, also save it into the department course catalog
+      if (isCustomCourse && customCourseInput.trim()) {
+        axios
+          .post(`${API_URL}/api/departments/courses`, {
+            name: customCourseInput.trim(),
+            departmentName: newDepartment,
+          })
+          .catch(() => {});
+
+        setCourseCatalog((prev) => {
+          const current = prev[newDepartment] || [];
+          if (!current.includes(customCourseInput.trim())) {
+            return { ...prev, [newDepartment]: [...current, customCourseInput.trim()] };
+          }
+          return prev;
+        });
+      }
 
       if (res.data?.note) {
         setNotes([res.data.note, ...notes]);
@@ -299,7 +436,8 @@ export default function StudyPage() {
       setTimeout(() => {
         setIsModalOpen(false);
         setNewTitle('');
-        setNewCourse('');
+        setCustomCourseInput('');
+        setIsCustomCourse(false);
         setNewDescription('');
         setNewFileUrl('');
         setSelectedFile(null);
@@ -379,7 +517,7 @@ export default function StudyPage() {
 
           {/* Department Pills */}
           <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
-            {DEPARTMENTS.map((dept) => (
+            {departments.map((dept) => (
               <button
                 key={dept}
                 onClick={() => setSelectedDepartment(dept)}
@@ -496,32 +634,89 @@ export default function StudyPage() {
                   required
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                  <InputField
-                    id="note-course"
-                    name="course"
-                    label="Course Code"
-                    placeholder="e.g. CS401"
-                    value={newCourse}
-                    onChange={(e) => setNewCourse(e.target.value)}
-                    required
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Department
-                    </label>
-                    <select
-                      value={newDepartment}
-                      onChange={(e) => setNewDepartment(e.target.value)}
-                      className="w-full px-3 py-3 bg-gray-900/70 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-                    >
-                      {DEPARTMENTS.filter((d) => d !== 'All').map((d) => (
-                        <option key={d} value={d} className="bg-[#0f0f18]">
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                        Department
+                      </label>
+                      <select
+                        value={newDepartment}
+                        onChange={(e) => {
+                          const dept = e.target.value;
+                          setNewDepartment(dept);
+                          const courses = courseCatalog[dept] || [];
+                          if (courses.length > 0 && !isCustomCourse) {
+                            setNewCourse(courses[0]);
+                          }
+                        }}
+                        className="w-full px-3 py-3 bg-gray-900/70 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      >
+                        {departments
+                          .filter((d) => d !== 'All')
+                          .map((d) => (
+                            <option key={d} value={d} className="bg-[#0f0f18]">
+                              {d}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-sm font-medium text-gray-300">
+                          Course
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomCourse(!isCustomCourse)}
+                          className="text-[11px] font-bold text-pink-400 hover:text-pink-300 underline"
+                        >
+                          {isCustomCourse ? 'Choose Existing' : '+ Add New Course'}
+                        </button>
+                      </div>
+
+                      {isCustomCourse ? (
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="e.g. SWE 312: Software Testing"
+                            value={customCourseInput}
+                            onChange={(e) => setCustomCourseInput(e.target.value)}
+                            className="w-full px-3 py-3 bg-pink-500/10 border border-pink-500/50 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                            required
+                          />
+                        </div>
+                      ) : (
+                        <select
+                          value={newCourse}
+                          onChange={(e) => {
+                            if (e.target.value === '__add_new__') {
+                              setIsCustomCourse(true);
+                            } else {
+                              setNewCourse(e.target.value);
+                            }
+                          }}
+                          className="w-full px-3 py-3 bg-gray-900/70 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                        >
+                          {(courseCatalog[newDepartment] || []).map((c) => (
+                            <option key={c} value={c} className="bg-[#0f0f18]">
+                              {c}
+                            </option>
+                          ))}
+                          <option value="__add_new__" className="bg-purple-900 text-pink-300 font-bold">
+                            ➕ + Create / Type New Course...
+                          </option>
+                        </select>
+                      )}
+                    </div>
                   </div>
+
+                  {isCustomCourse && (
+                    <div className="p-2.5 rounded-lg bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs flex items-center space-x-2">
+                      <span>✨ Any user can add a new course! It will be registered automatically when you upload.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>

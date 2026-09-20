@@ -1,4 +1,5 @@
 // Admin Controller for dynamic management of notes, research, careers, tuition, and internships
+import departmentController from '../departments/department.controller.js';
 
 let dynamicCareers = [
   {
@@ -165,11 +166,15 @@ let dynamicResearch = [
 class AdminController {
   // Overview
   async getOverview(req, res) {
+    const depts = departmentController.getDepartmentList();
+    const totalCourses = depts.reduce((acc, d) => acc + (d.courses?.length || 0), 0);
     res.json({
       success: true,
       stats: {
         totalCareers: dynamicCareers.length,
         totalResearch: dynamicResearch.length,
+        totalDepartments: depts.length,
+        totalCourses,
         activeTuitions: dynamicCareers.filter((c) => c.category === 'Tuition').length,
         activeInternships: dynamicCareers.filter((c) => c.category === 'Internship').length,
         activeJobs: dynamicCareers.filter((c) => c.category === 'Job').length,

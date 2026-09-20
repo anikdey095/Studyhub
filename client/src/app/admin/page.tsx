@@ -23,7 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function AdminPage() {
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'careers' | 'research' | 'notes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'departments' | 'careers' | 'research' | 'notes'>('overview');
   const [adminKey, setAdminKey] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(false);
 
@@ -31,8 +31,16 @@ export default function AdminPage() {
   const [careers, setCareers] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [papers, setPapers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState('');
+
+  // Department & Course Management
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptCode, setNewDeptCode] = useState('');
+  const [newDeptDesc, setNewDeptDesc] = useState('');
+  const [selectedDeptForCourse, setSelectedDeptForCourse] = useState('Computer Science & Engineering');
+  const [adminCourseName, setAdminCourseName] = useState('');
 
   // Career Form (Job / Tuition / Internship)
   const [careerTitle, setCareerTitle] = useState('');
@@ -46,7 +54,7 @@ export default function AdminPage() {
   // Note Form
   const [noteTitle, setNoteTitle] = useState('');
   const [noteCourse, setNoteCourse] = useState('');
-  const [noteDept, setNoteDept] = useState('Computer Science');
+  const [noteDept, setNoteDept] = useState('Computer Science & Engineering');
   const [noteUrl, setNoteUrl] = useState('');
 
   // Research Form
@@ -60,14 +68,21 @@ export default function AdminPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [careersRes, notesRes, researchRes] = await Promise.all([
+      const [careersRes, notesRes, researchRes, deptsRes] = await Promise.all([
         axios.get(`${API_URL}/api/admin/careers`),
         axios.get(`${API_URL}/api/notes`),
         axios.get(`${API_URL}/api/admin/research`),
+        axios.get(`${API_URL}/api/departments`),
       ]);
       setCareers(careersRes.data.careers || []);
       setNotes(notesRes.data.notes || []);
       setPapers(researchRes.data.papers || []);
+      if (deptsRes.data?.departments) {
+        setDepartments(deptsRes.data.departments);
+        if (deptsRes.data.departments.length > 0) {
+          setSelectedDeptForCourse(deptsRes.data.departments[0].name);
+        }
+      }
     } catch (err) {
       console.warn('Error fetching admin data:', err);
     } finally {
@@ -180,14 +195,70 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeletePaper = async (id: string) => {
+  const handleCreateDept = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeptName.trim()) return;
     try {
-      await axios.delete(`${API_URL}/api/admin/research/${id}`);
-      setPapers(papers.filter((p) => p.id !== id));
-      setNotification('Paper deleted.');
+      const res = await axios.post(`${API_URL}/api/departments`, {
+        name: newDeptName.trim(),
+        code: newDeptCode.trim(),
+        description: newDeptDesc.trim(),
+      });
+      if (res.data?.department) {
+        setDepartments((prev) => [...prev, res.data.department]);
+        setNotification(`Department "${res.data.department.name}" added successfully!`);
+        setTimeout(() => setNotification(''), 2500);
+        setNewDeptName('');
+        setNewDeptCode('');
+        setNewDeptDesc('');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to create department');
+    }
+  };
+
+  const handleDeleteDept = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete department "${name}"?`)) return;
+    try {
+      await axios.delete(`${API_URL}/api/departments/${id}`);
+      setDepartments((prev) => prev.filter((d) => d.id !== id));
+      setNotification(`Department "${name}" removed.`);
       setTimeout(() => setNotification(''), 2000);
     } catch (err) {
-      alert('Error deleting paper');
+      alert('Error deleting department');
+    }
+  };
+
+  const handleAdminAddCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminCourseName.trim()) return;
+    try {
+      const targetDept = selectedDeptForCourse || departments[0]?.name || 'Computer Science & Engineering';
+      const res = await axios.post(`${API_URL}/api/departments/courses`, {
+        name: adminCourseName.trim(),
+        departmentName: targetDept,
+      });
+      if (res.data?.course) {
+        setDepartments((prev) =>
+          prev.map((d) => {
+            if (d.name.toLowerCase() === targetDept.toLowerCase()) {
+              const existingCourses = d.courses || [];
+              const exists = existingCourses.some(
+                (c: any) => (c.name || c).toLowerCase() === adminCourseName.trim().toLowerCase()
+              );
+              if (!exists) {
+                return { ...d, courses: [...existingCourses, res.data.course] };
+              }
+            }
+            return d;
+          })
+        );
+        setNotification(`Course "${adminCourseName}" added under ${targetDept}!`);
+        setTimeout(() => setNotification(''), 2500);
+        setAdminCourseName('');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to add course');
     }
   };
 
@@ -265,6 +336,7 @@ export default function AdminPage() {
         <div className="flex items-center space-x-2 my-8 border-b border-white/10 pb-4 overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview Metrics', icon: Sparkles },
+            { id: 'departments', label: 'Departments & Courses', icon: GraduationCap },
             { id: 'careers', label: 'Jobs, Tuition & Internships', icon: Briefcase },
             { id: 'notes', label: 'Study Notes', icon: BookOpen },
             { id: 'research', label: 'Research Preprints', icon: FileText },
@@ -290,34 +362,194 @@ export default function AdminPage() {
         {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
-                <p className="text-xs text-gray-400 uppercase font-bold">Total Careers & Tuition</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold">University Depts</p>
+                <p className="text-3xl font-black text-white mt-1">{departments.length}</p>
+                <p className="text-xs text-emerald-400 mt-1">Configured faculties</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold">Total Careers</p>
                 <p className="text-3xl font-black text-white mt-1">{careers.length}</p>
                 <p className="text-xs text-purple-400 mt-1">Active listings</p>
               </div>
-              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
-                <p className="text-xs text-gray-400 uppercase font-bold">Total Study Notes</p>
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
+                <p className="text-xs text-gray-400 uppercase font-bold">Study Notes</p>
                 <p className="text-3xl font-black text-white mt-1">{notes.length}</p>
-                <p className="text-xs text-pink-400 mt-1">Available in library</p>
+                <p className="text-xs text-pink-400 mt-1">In repository</p>
               </div>
-              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
                 <p className="text-xs text-gray-400 uppercase font-bold">Research Papers</p>
                 <p className="text-3xl font-black text-white mt-1">{papers.length}</p>
-                <p className="text-xs text-blue-400 mt-1">Published preprints</p>
+                <p className="text-xs text-blue-400 mt-1">Published</p>
               </div>
-              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10">
                 <p className="text-xs text-gray-400 uppercase font-bold">Database Status</p>
-                <p className="text-xl font-bold text-emerald-400 mt-1">Active & Synced</p>
-                <p className="text-xs text-gray-500 mt-1">PostgreSQL + Local Cache</p>
+                <p className="text-lg font-bold text-emerald-400 mt-1">Active & Synced</p>
+                <p className="text-xs text-gray-500 mt-1">PostgreSQL DB</p>
               </div>
             </div>
 
             <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-500/30">
               <h3 className="text-lg font-bold text-white">Administrator Instructions</h3>
               <p className="text-sm text-gray-300 mt-1 leading-relaxed">
-                Use the tabs above to post new <strong>Jobs</strong>, <strong>Tuition / Tutoring openings</strong>, and <strong>Internship Programs</strong>. Any additions made here instantly show up on the public <code>/jobs</code> and <code>/study</code> pages for all users!
+                Use the tabs above to manage <strong>University Departments & Courses</strong>, post new <strong>Jobs</strong>, <strong>Tuition / Tutoring openings</strong>, and <strong>Internship Programs</strong>. Any additions made here instantly update the public <code>/study</code> and <code>/jobs</code> pages!
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: DEPARTMENTS & COURSES */}
+        {activeTab === 'departments' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column Forms */}
+            <div className="space-y-6 lg:col-span-1">
+              {/* Form 1: Add Department */}
+              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                  <Plus className="w-5 h-5 text-pink-500" />
+                  <span>Add University Department</span>
+                </h3>
+                <form onSubmit={handleCreateDept} className="space-y-4">
+                  <InputField
+                    id="new-dept-name"
+                    name="deptName"
+                    label="Department Name"
+                    placeholder="e.g. Data Science"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    required
+                  />
+                  <InputField
+                    id="new-dept-code"
+                    name="deptCode"
+                    label="Short Code / Abbreviation"
+                    placeholder="e.g. DS"
+                    value={newDeptCode}
+                    onChange={(e) => setNewDeptCode(e.target.value)}
+                  />
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                      Description / Overview
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={newDeptDesc}
+                      onChange={(e) => setNewDeptDesc(e.target.value)}
+                      placeholder="Overview of syllabus or academic focus..."
+                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-white text-xs focus:ring-2 focus:ring-pink-500"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Add Department
+                  </Button>
+                </form>
+              </div>
+
+              {/* Form 2: Add Course */}
+              <div className="p-6 rounded-2xl bg-white/[0.03] border border-white/10">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                  <BookOpen className="w-5 h-5 text-purple-400" />
+                  <span>Add Course to Department</span>
+                </h3>
+                <form onSubmit={handleAdminAddCourse} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                      Target Department
+                    </label>
+                    <select
+                      value={selectedDeptForCourse}
+                      onChange={(e) => setSelectedDeptForCourse(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-xs focus:ring-2 focus:ring-purple-500"
+                    >
+                      {departments.map((d) => (
+                        <option key={d.id || d.name} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <InputField
+                    id="admin-course-input"
+                    name="courseName"
+                    label="Course Name & Code"
+                    placeholder="e.g. CSE 421: Computer Networks"
+                    value={adminCourseName}
+                    onChange={(e) => setAdminCourseName(e.target.value)}
+                    required
+                  />
+                  <Button type="submit" className="w-full">
+                    Register Course
+                  </Button>
+                </form>
+              </div>
+            </div>
+
+            {/* Right Column: Active Departments & Catalog */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div>
+                  <h3 className="text-lg font-bold text-white">University Departments & Courses</h3>
+                  <p className="text-xs text-gray-400">Manage academic faculties and curriculum course lists.</p>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                  {departments.length} Departments
+                </span>
+              </div>
+
+              {departments.map((dept) => {
+                const courseList = dept.courses || [];
+                return (
+                  <div
+                    key={dept.id || dept.name}
+                    className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-xs font-bold uppercase">
+                            {dept.code || dept.name.substring(0, 4)}
+                          </span>
+                          <h4 className="font-bold text-white text-base">{dept.name}</h4>
+                        </div>
+                        {dept.description && (
+                          <p className="text-xs text-gray-400 mt-1">{dept.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteDept(dept.id, dept.name)}
+                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                        title="Delete Department"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-400 mb-1.5 flex items-center justify-between">
+                        <span>Course Catalog ({courseList.length})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {courseList.length === 0 ? (
+                          <span className="text-xs text-gray-500 italic">No courses registered yet.</span>
+                        ) : (
+                          courseList.map((c: any, idx: number) => {
+                            const name = typeof c === 'string' ? c : c.name;
+                            return (
+                              <span
+                                key={c.id || idx}
+                                className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-gray-300 text-xs"
+                              >
+                                {name}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -492,11 +724,11 @@ export default function AdminPage() {
                     onChange={(e) => setNoteDept(e.target.value)}
                     className="w-full px-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-xs focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Artificial Intelligence">Artificial Intelligence</option>
-                    <option value="Chemistry & Biology">Chemistry & Biology</option>
-                    <option value="Business & Economics">Business & Economics</option>
-                    <option value="Mathematics">Mathematics</option>
+                    {departments.map((d) => (
+                      <option key={d.id || d.name} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <InputField

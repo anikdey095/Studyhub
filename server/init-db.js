@@ -44,12 +44,26 @@ export async function initializeDatabase() {
         "title" TEXT NOT NULL,
         "description" TEXT,
         "fileUrl" TEXT NOT NULL,
-        "authorId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-        "courseId" TEXT NOT NULL REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+        "courseName" TEXT,
+        "departmentName" TEXT,
+        "universityName" TEXT,
+        "authorName" TEXT,
+        "downloadCount" INTEGER NOT NULL DEFAULT 0,
+        "authorId" TEXT REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+        "courseId" TEXT REFERENCES "Course"("id") ON DELETE CASCADE ON UPDATE CASCADE,
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Ensure Note columns exist if table was created with older schema
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "courseName" TEXT;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "departmentName" TEXT;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "universityName" TEXT;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "authorName" TEXT;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "downloadCount" INTEGER NOT NULL DEFAULT 0;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ALTER COLUMN "authorId" DROP NOT NULL;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Note" ALTER COLUMN "courseId" DROP NOT NULL;`).catch(() => {});
 
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Comment" (
