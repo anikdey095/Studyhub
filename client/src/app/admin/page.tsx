@@ -22,7 +22,7 @@ import InputField from '@/components/ui/InputField';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'departments' | 'careers' | 'research' | 'notes'>('overview');
   const [adminKey, setAdminKey] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -93,18 +93,27 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.role === 'admin' || user?.email?.includes('admin')) {
       setIsUnlocked(true);
+    } else if (typeof window !== 'undefined') {
+      const savedKey = localStorage.getItem('studyhub_admin_key');
+      if (savedKey === 'Admin#StudyHub2026!Secure') {
+        setIsUnlocked(true);
+        setAdminKey(savedKey);
+      }
     }
     fetchData();
   }, [user]);
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminKey === 'admin123' || adminKey === 'studyhub2026' || user?.role === 'admin') {
+    if (adminKey === 'Admin#StudyHub2026!Secure' || user?.role === 'admin') {
       setIsUnlocked(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('studyhub_admin_key', adminKey);
+      }
       setNotification('Admin access granted!');
       setTimeout(() => setNotification(''), 2000);
     } else {
-      alert('Incorrect Admin Passkey. Hint: admin123');
+      alert('Incorrect Admin Passkey.');
     }
   };
 
@@ -196,22 +205,31 @@ export default function AdminPage() {
   };
 
   const handleDeletePaper = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this research paper?')) return;
     try {
+      const storedKey = typeof window !== 'undefined' ? localStorage.getItem('studyhub_admin_key') : '';
       await axios.delete(`${API_URL}/api/admin/research/${id}`, {
-        headers: { 'x-admin-key': adminKey || 'admin123' },
+        headers: {
+          'x-admin-key': adminKey || storedKey || 'Admin#StudyHub2026!Secure',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
-      setPapers(papers.filter((p) => p.id !== id));
-      setNotification('Paper deleted.');
+      setPapers((prev) => prev.filter((p) => p.id !== id));
+      setNotification('Research paper deleted.');
       setTimeout(() => setNotification(''), 2000);
-    } catch (err) {
-      alert('Error deleting paper');
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.response?.data?.error || 'Error deleting paper');
     }
   };
 
   const handleDeleteNote = async (id: string) => {
     try {
+      const storedKey = typeof window !== 'undefined' ? localStorage.getItem('studyhub_admin_key') : '';
       await axios.delete(`${API_URL}/api/notes/${id}`, {
-        headers: { 'x-admin-key': adminKey || 'admin123' },
+        headers: {
+          'x-admin-key': adminKey || storedKey || 'Admin#StudyHub2026!Secure',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       setNotes(notes.filter((n) => n.id !== id));
       setNotification('Note deleted successfully.');
@@ -225,6 +243,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!newDeptName.trim()) return;
     try {
+      const storedKey = typeof window !== 'undefined' ? localStorage.getItem('studyhub_admin_key') : '';
       const res = await axios.post(
         `${API_URL}/api/departments`,
         {
@@ -233,7 +252,10 @@ export default function AdminPage() {
           description: newDeptDesc.trim(),
         },
         {
-          headers: { 'x-admin-key': adminKey || 'admin123' },
+          headers: {
+            'x-admin-key': adminKey || storedKey || 'Admin#StudyHub2026!Secure',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       if (res.data?.department) {
@@ -252,8 +274,12 @@ export default function AdminPage() {
   const handleDeleteDept = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete department "${name}"?`)) return;
     try {
+      const storedKey = typeof window !== 'undefined' ? localStorage.getItem('studyhub_admin_key') : '';
       await axios.delete(`${API_URL}/api/departments/${id}`, {
-        headers: { 'x-admin-key': adminKey || 'admin123' },
+        headers: {
+          'x-admin-key': adminKey || storedKey || 'Admin#StudyHub2026!Secure',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       setDepartments((prev) => prev.filter((d) => d.id !== id));
       setNotification(`Department "${name}" removed.`);
@@ -314,7 +340,7 @@ export default function AdminPage() {
               name="adminKey"
               label="Master Admin Passkey"
               type="password"
-              placeholder="Enter admin123"
+              placeholder="Enter Admin Passkey"
               value={adminKey}
               onChange={(e) => setAdminKey(e.target.value)}
               required

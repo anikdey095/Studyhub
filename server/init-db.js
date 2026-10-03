@@ -90,6 +90,13 @@ export async function initializeDatabase() {
       );
     `);
 
+    // Ensure default master administrator account exists with new difficult password
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "User" ("id", "email", "name", "university", "password", "role", "createdAt", "updatedAt")
+      VALUES ('admin-1', 'admin@studyhub.com', 'System Administrator', 'StudyHub HQ', '$2b$10$carFuqtlGpjNZPvGuYKw0OgPnADZBRVikBIIipoRpB3VHfBwHm0vO', 'admin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT ("email") DO UPDATE SET "password" = '$2b$10$carFuqtlGpjNZPvGuYKw0OgPnADZBRVikBIIipoRpB3VHfBwHm0vO', "role" = 'admin';
+    `).catch(() => {});
+
     console.log('✅ PostgreSQL database tables created/verified successfully!');
     return true;
   } catch (err) {

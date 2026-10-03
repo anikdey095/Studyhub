@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'studyhub_jwt_super_secret_production_ready_key_2026';
-const VALID_ADMIN_KEYS = ['admin123', 'studyhub2026'];
+const VALID_ADMIN_KEYS = [
+  'Admin#StudyHub2026!Secure',
+  ...(process.env.ADMIN_PASSKEY ? [process.env.ADMIN_PASSKEY] : []),
+];
 
 /**
  * Middleware to ensure request is from an authorized Administrator
@@ -49,7 +52,7 @@ export const requireAdmin = (req, res, next) => {
     return res.status(403).json({
       success: false,
       error: 'Admin authorization required',
-      message: 'Access denied: Only administrators are authorized to create or delete university departments.'
+      message: 'Access denied: Only administrators are authorized to perform this action.'
     });
   } catch (error) {
     console.error('requireAdmin error:', error);

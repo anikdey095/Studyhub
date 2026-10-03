@@ -11,7 +11,7 @@ const IN_MEMORY_USERS = new Map([
       email: 'admin@studyhub.com',
       name: 'System Administrator',
       university: 'StudyHub HQ',
-      passwordHash: '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', // admin123
+      passwordHash: '$2b$10$carFuqtlGpjNZPvGuYKw0OgPnADZBRVikBIIipoRpB3VHfBwHm0vO', // Admin#StudyHub2026!Secure
       role: 'admin',
       createdAt: new Date().toISOString(),
     }

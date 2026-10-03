@@ -1,4 +1,5 @@
-// Admin Controller for dynamic management of notes, research, careers, tuition, and internships
+import path from 'path';
+import fs from 'fs';
 import departmentController from '../departments/department.controller.js';
 
 let dynamicCareers = [
@@ -262,9 +263,32 @@ class AdminController {
   }
 
   async deleteResearch(req, res) {
-    const { id } = req.params;
-    dynamicResearch = dynamicResearch.filter((p) => p.id !== id);
-    res.json({ success: true, message: 'Paper deleted' });
+    try {
+      const { id } = req.params;
+      const paperToDelete = dynamicResearch.find((p) => p.id === id);
+
+      if (paperToDelete && paperToDelete.pdfUrl) {
+        try {
+          const match = paperToDelete.pdfUrl.match(/\/uploads\/([^/?#]+)/);
+          if (match && match[1]) {
+            const fileName = match[1];
+            const filePath = path.resolve(process.cwd(), 'uploads', fileName);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`Deleted associated PDF file: ${filePath}`);
+            }
+          }
+        } catch (unlinkErr) {
+          console.warn('Notice removing PDF file for deleted paper:', unlinkErr.message);
+        }
+      }
+
+      dynamicResearch = dynamicResearch.filter((p) => p.id !== id);
+      return res.json({ success: true, message: 'Research paper and associated PDF deleted successfully' });
+    } catch (err) {
+      console.error('Error deleting research paper:', err);
+      return res.status(500).json({ success: false, error: 'Failed to delete research paper' });
+    }
   }
 }
 

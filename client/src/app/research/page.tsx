@@ -17,6 +17,9 @@ import {
   GraduationCap,
   Lock,
   Upload,
+  Trash2,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import InputField from '@/components/ui/InputField';
@@ -89,7 +92,7 @@ const INITIAL_PAPERS: Paper[] = [
 const FIELDS = ['All', 'AI & Robotics', 'Quantum Computing', 'Biotechnology', 'Renewable Energy'];
 
 export default function ResearchPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [papers, setPapers] = useState<Paper[]>(INITIAL_PAPERS);
   const [selectedField, setSelectedField] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +100,20 @@ export default function ResearchPage() {
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [downloadedId, setDownloadedId] = useState<string | null>(null);
   const [selectedReadingPaper, setSelectedReadingPaper] = useState<Paper | null>(null);
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
+  const [adminNotification, setAdminNotification] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedKey = localStorage.getItem('studyhub_admin_key');
+      if (savedKey === 'Admin#StudyHub2026!Secure') {
+        setAdminUnlocked(true);
+      }
+    }
+  }, []);
+
+  const isAdmin = Boolean(user?.role === 'admin' || user?.email?.includes('admin') || adminUnlocked);
 
   // Sync research papers from server
   useEffect(() => {
@@ -104,17 +121,76 @@ export default function ResearchPage() {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
         const res = await axios.get(`${API_URL}/api/admin/research`);
-        if (res.data?.papers && Array.isArray(res.data.papers) && res.data.papers.length > 0) {
-          const apiIds = new Set(res.data.papers.map((p: any) => p.id));
-          const uniqueInitial = INITIAL_PAPERS.filter((p) => !apiIds.has(p.id));
-          setPapers([...res.data.papers, ...uniqueInitial]);
+        if (res.data?.papers && Array.isArray(res.data.papers)) {
+          setPapers(res.data.papers);
         }
       } catch (err) {
         // Use local fallback
+        setPapers(INITIAL_PAPERS);
       }
     };
     fetchPapers();
   }, []);
+
+  // Admin delete research paper handler
+  const handleDeletePaper = async (id: string, paperTitle: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this research paper?\n\n"${paperTitle}"\n\nThis will permanently remove the paper and its associated PDF. This action is restricted exclusively to Administrators.`
+    );
+    if (!confirmed) return;
+
+    setDeleteLoadingId(id);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const savedKey = typeof window !== 'undefined' ? localStorage.getItem('studyhub_admin_key') : null;
+
+    try {
+      const headers: Record<string, string> = {
+        'x-admin-key': savedKey || 'Admin#StudyHub2026!Secure',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      await axios.delete(`${API_URL}/api/admin/research/${id}`, { headers });
+      setPapers((prev) => prev.filter((p) => p.id !== id));
+      setAdminNotification(`Paper "${paperTitle}" deleted successfully.`);
+      setTimeout(() => setAdminNotification(''), 3500);
+    } catch (err: any) {
+      console.error('Failed to delete research paper:', err);
+      alert(
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        'Failed to delete research paper. Admin authorization required.'
+      );
+    } finally {
+      setDeleteLoadingId(null);
+    }
+  };
+
+  const handleAdminAuthToggle = () => {
+    if (isAdmin && adminUnlocked) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('studyhub_admin_key');
+      }
+      setAdminUnlocked(false);
+      setAdminNotification('Admin mode deactivated.');
+      setTimeout(() => setAdminNotification(''), 2500);
+      return;
+    }
+
+    const key = window.prompt('Enter Master Administrator Passkey to enable deletion & management:');
+    if (!key) return;
+    if (key === 'Admin#StudyHub2026!Secure') {
+      setAdminUnlocked(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('studyhub_admin_key', key);
+      }
+      setAdminNotification('Admin mode verified! You can now delete any research paper.');
+      setTimeout(() => setAdminNotification(''), 3500);
+    } else {
+      alert('Incorrect admin passkey. Access denied.');
+    }
+  };
 
   // Form State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,20 +376,60 @@ export default function ResearchPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              if (!isAuthenticated) {
-                setShowAuthGate(true);
-              } else {
-                setIsModalOpen(true);
-              }
-            }}
-            className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-sm flex items-center space-x-2 shadow-lg shadow-purple-600/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Submit Research Paper</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            <button
+              onClick={handleAdminAuthToggle}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                isAdmin
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 shadow-md shadow-red-500/10'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10'
+              }`}
+              title={isAdmin ? 'Admin Mode Verified (Click to exit admin mode)' : 'Admin Login / Passkey Unlock'}
+            >
+              {isAdmin ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-red-400" />
+                  <span>Admin Mode (Active)</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-4 h-4 text-pink-400" />
+                  <span>Admin Access</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowAuthGate(true);
+                } else {
+                  setIsModalOpen(true);
+                }
+              }}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-sm flex items-center space-x-2 shadow-lg shadow-purple-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Submit Research Paper</span>
+            </button>
+          </div>
         </div>
+
+        {/* Admin Notification Banner */}
+        {adminNotification && (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{adminNotification}</span>
+            </div>
+            <button
+              onClick={() => setAdminNotification('')}
+              className="text-gray-400 hover:text-white p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Filters and Search */}
         <div className="my-8 space-y-4">
@@ -411,27 +527,41 @@ export default function ResearchPage() {
                   </a>
                 </div>
 
-                <button
-                  onClick={() => handleDownload(paper.id)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                    downloadedId === paper.id
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10'
-                  }`}
-                  title="Download manuscript PDF"
-                >
-                  {downloadedId === paper.id ? (
-                    <>
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Saved PDF</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download PDF</span>
-                    </>
+                <div className="flex items-center space-x-2">
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleDeletePaper(paper.id, paper.title)}
+                      disabled={deleteLoadingId === paper.id}
+                      className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/30 transition-all shadow-sm disabled:opacity-50"
+                      title="Delete this PDF research paper (Admin Only)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      <span>{deleteLoadingId === paper.id ? 'Deleting...' : 'Delete Paper'}</span>
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    onClick={() => handleDownload(paper.id)}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                      downloadedId === paper.id
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10'
+                    }`}
+                    title="Download manuscript PDF"
+                  >
+                    {downloadedId === paper.id ? (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Saved PDF</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download PDF</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           ))}

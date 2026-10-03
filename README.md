@@ -47,7 +47,7 @@ Tailored for modern academic disciplines with dedicated course directories:
 - **Automatic Catalog Registration**: When a student introduces a new course, it is automatically cataloged under that department so that other students can immediately discover and select it for future uploads.
 
 ### 4. 🛡️ Dynamic Admin Management Hub (`/admin`)
-- **Master Passkey Gateway**: Protected by passkey authentication (`admin123`) or verified `admin` role accounts.
+- **Master Passkey Gateway**: Protected by secure passkey authentication (`Admin#StudyHub2026!Secure`) or verified `admin` role accounts.
 - **Live Department Administration**: Admins can add new university departments (Name, Short Code, Description) and delete faculties in real-time.
 - **Live Course Registration**: Admins can register official curriculum courses under any department.
 - **Career & Tuition Management**: Post and manage undergraduate jobs, private home tutoring requests, and industry internships.
@@ -243,8 +243,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## 🔑 Admin Access Passkey
 
 To access the Admin Management Hub at [http://localhost:3000/admin](http://localhost:3000/admin):
-- **Master Admin Passkey**: `admin123` (or `studyhub2026`)
-- Or log in with an account having role `'admin'`.
+- **Master Admin Passkey**: `Admin#StudyHub2026!Secure`
+- Or log in with an administrator account (`admin@studyhub.com` / `Admin#StudyHub2026!Secure`).
 
 From the Admin Hub, you can:
 - **Add New Departments**: Click the "Departments & Courses" tab → Enter department name, code, description.
