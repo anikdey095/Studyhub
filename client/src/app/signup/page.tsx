@@ -84,10 +84,15 @@ const SignupPage = () => {
         }, 1500);
       }
     } catch (err: any) {
+      const isRemoteHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const networkHelpMsg = isRemoteHost
+        ? 'Unable to connect to backend server. When running on Vercel, configure NEXT_PUBLIC_API_URL in Vercel Environment Variables with your deployed backend URL (e.g., on Render).'
+        : 'Unable to connect to backend server. Make sure your backend server is running on port 5001 (npm run dev:server).';
+
       const msg =
         err.response?.data?.error ||
         err.response?.data?.message ||
-        (err.code === 'ERR_NETWORK' ? 'Unable to connect to backend server. Make sure it is running.' : null) ||
+        (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error') ? networkHelpMsg : null) ||
         'An error occurred during signup.';
       setError(msg);
     } finally {
